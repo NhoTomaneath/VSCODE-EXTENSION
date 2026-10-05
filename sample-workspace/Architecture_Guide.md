@@ -2,17 +2,23 @@
 
 ## Overview
 
-This project appears to be a TypeScript-based application with a modular structure, likely intended for a backend service or API. The main top-level directories and files serve the following purposes:
+The project appears to be a small web application with a frontend and backend, organized into a few main directories. Here's a concise summary for a new developer:
 
-- **`src/`**: The core source code directory. It contains the main application logic and is organized into subdirectories for better structure.
-  - **`app.js`**: Likely the main entry point of the application, possibly bootstrapping the server or main logic.
-  - **`controllers/`**: Contains controller files, which handle incoming requests and interact with services or data layers. `orders.controller.ts` suggests it manages order-related operations.
-  - **`utils/`**: Houses utility functions and possibly test files. `math.ts` might contain helper functions, while `math.test.ts` is a test file for those utilities.
-- **`tsconfig.json`**: Configures TypeScript compiler options, defining how TypeScript is transpiled into JavaScript.
-- **`jest.config.js`**: Sets up Jest, the testing framework, for running unit tests.
-- **`package.json` and `package-lock.json`**: Define project dependencies and versioning, essential for building and running the project.
+- **`sample-workspace/`** is the root of the project and contains key documentation and configuration files.
+  - **`API_Documentation.md`** and **`Architecture_Guide.md`** provide guidance on how the API works and the overall system design.
+  - **`config.json`** likely holds configuration settings for the application.
+  
+- **`landing-page/`** is the frontend directory, containing all the assets and logic for the landing page:
+  - **`data/`** stores a SQLite database file (`subscribers.db`) for managing subscriber data.
+  - **`public/`** contains static files like HTML, CSS, and JavaScript that are served directly to the browser.
+  - **`server.js`** is the backend server for the landing page, likely handling HTTP requests and interacting with the database.
 
-The project seems to follow a clean, modular structure with clear separation of concerns, making it easy to maintain and extend. Testing is integrated with Jest, and TypeScript is used for type safety and modern JavaScript features.
+- **`src/`** contains the core application code:
+  - **`app.js`** is likely the main entry point for the application.
+  - **`controllers/`** holds logic for handling specific routes or actions, such as managing orders.
+  - **`utils/`** contains utility functions, like `math.ts`, which may provide helper functions for calculations or data manipulation.
+
+Overall, the project seems to be a simple web app with a frontend landing page and a backend that manages data and routes. The structure is clean and modular, with clear separation between static assets, server logic, and utility functions.
 
 ## Folder Structure
 
@@ -20,7 +26,18 @@ The project seems to follow a clean, modular structure with clear separation of 
 - sample-workspace/
   - API_Documentation.md
   - Architecture_Guide.md
-  - jest.config.js
+  - config.json
+  - landing-page/
+    - .gitignore
+    - data/
+      - subscribers.db
+    - package-lock.json
+    - package.json
+    - public/
+      - index.html
+      - script.js
+      - style.css
+    - server.js
   - package-lock.json
   - package.json
   - src/
@@ -28,26 +45,31 @@ The project seems to follow a clean, modular structure with clear separation of 
     - controllers/
       - orders.controller.ts
     - utils/
-      - math.test.ts
       - math.ts
-  - tsconfig.json
 ```
 
 ## Classes
 
 ### `OrdersController` (src/controllers/orders.controller.ts:3)
 
-The `OrdersController` class manages HTTP requests related to order operations. It provides methods to retrieve all orders, find an order by ID, and create a new order with an item ID and quantity. Collectively, these methods handle CRUD operations for order data.
+The `OrdersController` class manages order-related operations in an application. It provides methods to retrieve all orders, find an order by ID, and create a new order with an item ID and quantity. Collectively, these methods handle order listing, lookup, and creation functionality.
 
 ### `Average` (src/utils/math.ts:8)
 
-The `Average` class represents a simple calculator for computing the average of a set of numbers. It provides two methods: `add(value: number)` which adds a number to the running total, and `value(): number` which returns the current average. Collectively, these methods allow users to incrementally add values and retrieve the computed average at any time.
+The `Average` class represents a simple calculator for maintaining a running average of numbers. It provides two methods: `add(value: number)` which adds a new number to the average calculation, and `value(): number` which returns the current average. These methods work together to allow developers to incrementally compute an average as values are added.
 
 ## Functions
 
+### `setMessage(text, type)` (landing-page/public/script.js:35)
+
+Sets the text and type of a message element on the page.  
+- `text`: The text to display in the message.  
+- `type`: The type of message (e.g., 'success', 'error'), used to set the corresponding class.  
+Returns nothing; modifies the DOM element directly.
+
 ### `listUsers()` (src/app.js:23)
 
-The `listUsers()` function returns an empty array. It has no parameters. This function is intended to be overridden or extended to provide a list of users. The current implementation simply returns an empty array.
+The `listUsers()` function retrieves a list of users. It has no parameters. It returns an empty array by default. This function is intended to be overridden or extended to provide actual user data.
 
 ### `createUser(name, email)` (src/app.js:27)
 
@@ -57,14 +79,23 @@ The `createUser` function creates and returns a user object with the provided na
 
 ### `findUser(id)` (src/app.js:31)
 
-The `findUser` function takes an `id` parameter and returns an object containing that `id`. It is a simple utility for retrieving user data by ID.  
-- **Parameters**: `id` (required, any type)  
-- **Return value**: An object `{ id }` with the provided ID.
+The `findUser` function returns an object with the provided `id` as its property.  
+- **Parameters**: `id` (required, typically a string or number)  
+- **Return value**: An object `{ id }` containing the input `id`
 
 ### `removeUser(id)` (src/app.js:35)
 
-The `removeUser` function takes an `id` parameter and returns it unchanged. It is currently a placeholder function that does not perform any actual user removal. The function is defined in `src/app.js`. The parameter `id` is expected to be a unique identifier for a user. The return value is the same as the input `id`.
+The `removeUser` function takes an `id` parameter and returns it unchanged. It is designed to handle the logic for removing a user by their ID, though the current implementation simply returns the ID. The function does not perform any actual removal operation. Use this function as a placeholder for future implementation.
 
 ### `clamp(value: number, min: number, max: number)` (src/utils/math.ts:1)
 
-The `clamp` function restricts a number to a specified range. It takes three parameters: `value` (the number to clamp), `min` (the lower bound), and `max` (the upper bound). If `min` is greater than `max`, it throws an error. The function returns the clamped value, ensuring it lies between `min` and `max`.
+The `clamp` function restricts a number to a specified range. It returns the input value if it lies between the minimum and maximum values; otherwise, it returns the nearest boundary value.  
+
+- **Parameters**:  
+  - `value`: The number to be clamped.  
+  - `min`: The lower bound of the clamping range.  
+  - `max`: The upper bound of the clamping range.  
+
+- **Return value**: A number that is within the range `[min, max]`.  
+
+- **Error**: Throws an error if `min` is greater than `max`.

@@ -14,7 +14,7 @@ export type ConfigOverrides = Partial<DevCompanionConfig>;
 
 export const DEFAULTS: DevCompanionConfig = {
   provider: 'ollama',
-  model: 'llama3:latest',
+  model: 'qwen3:8b',
   ollama_url: 'http://127.0.0.1:11434',
   apiBaseUrl: 'http://localhost:3000'
 };

@@ -1,5 +1,16 @@
 # API Documentation
 
+## landing-page/server.js
+
+### `POST /api/signup`
+
+- **Framework:** express
+- **Source:** landing-page/server.js:22
+
+```bash
+curl -X POST 'http://localhost:3000/api/signup'
+```
+
 ## src/app.js
 
 ### `GET /api/users`
