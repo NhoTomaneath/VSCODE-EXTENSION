@@ -1,6 +1,6 @@
 import { AIProvider } from '../../core/AIProvider';
 import { buildTestGenerationPrompt } from './promptBuilder';
-import { deriveTestFilePath } from './naming';
+import { deriveImportPath, deriveTestFilePath } from './naming';
 import { TestGenerationRequest, TestGenerationResult } from './types';
 
 /**
@@ -24,8 +24,23 @@ export async function generateTests(
 
   return {
     testFilePath: deriveTestFilePath(request.sourceFilePath),
-    content: content + '\n'
+    content: fixSourceImport(content, request.sourceFilePath) + '\n'
   };
+}
+
+/**
+ * Models often guess the import path (e.g. '../src/utils/math'). The test is
+ * always written beside the source, so point any relative import whose last
+ * segment is the source module at './<module>'.
+ */
+function fixSourceImport(testCode: string, sourceFilePath: string): string {
+  const correct = deriveImportPath(sourceFilePath);
+  const moduleName = correct.slice(2).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const specifier = new RegExp(
+    `(from\\s+|require\\(\\s*)(['"])\\.{1,2}/(?:[^'"]*/)?${moduleName}(?:\\.(?:tsx?|jsx?))?\\2`,
+    'g'
+  );
+  return testCode.replace(specifier, (_match, lead: string, quote: string) => `${lead}${quote}${correct}${quote}`);
 }
 
 function stripMarkdownFences(text: string): string {

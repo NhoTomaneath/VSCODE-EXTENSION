@@ -12,6 +12,7 @@ form.addEventListener('submit', async (event) => {
 
   try {
     const res = await fetch('/api/signup', {
+      method
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email }),

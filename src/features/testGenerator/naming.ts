@@ -1,4 +1,13 @@
 /**
+ * Import specifier a test file next to `sourceFilePath` must use to load it,
+ * e.g. `src/utils/math.ts` -> `./math`.
+ */
+export function deriveImportPath(sourceFilePath: string): string {
+  const fileName = sourceFilePath.replace(/\\/g, '/').split('/').pop() ?? sourceFilePath;
+  return './' + fileName.replace(/\.(tsx|ts|jsx|js)$/, '');
+}
+
+/**
  * Derives a Jest-convention `*.test.ts` (or `.tsx`/`.js`/`.jsx`) path from a
  * source file path, e.g. `src/utils/math.ts` -> `src/utils/math.test.ts`.
  */

@@ -36,7 +36,7 @@ export function activateTestGenerator(context: vscode.ExtensionContext, aiProvid
 
     try {
       const result = await vscode.window.withProgress(
-        { location: vscode.ProgressLocation.Notification, title: 'Dev Companion AI: generating tests…' },
+        { location: vscode.ProgressLocation.Notification, title: 'Dev Companion AI: generating tests (can take a few minutes with a local model)…' },
         () => generateTests(aiProvider, { sourceCode: sourceCode!, sourceFilePath: sourceFilePath! })
       );
 

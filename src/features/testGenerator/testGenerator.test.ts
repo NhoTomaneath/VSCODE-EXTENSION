@@ -62,3 +62,35 @@ describe('generateTests', () => {
     ).rejects.toThrow(/empty response/);
   });
 });
+
+describe('import path correction', () => {
+  it.each([
+    "import { clamp } from '../src/utils/math';",
+    "import { clamp } from '../math';",
+    "import { clamp } from './math.ts';",
+    "import { clamp } from './math';"
+  ])('rewrites %s to ./math', async (importLine) => {
+    const provider = fakeProvider(`${importLine}\ndescribe('x', () => {});`);
+
+    const result = await generateTests(provider, { sourceCode: 'export const clamp = 1;', sourceFilePath: 'src/utils/math.ts' });
+
+    expect(result.content).toContain("from './math';");
+    expect(result.content).not.toContain('../');
+  });
+
+  it('leaves unrelated imports alone', async () => {
+    const provider = fakeProvider("import { x } from '../other/mathematics';\nimport fs from 'fs';");
+
+    const result = await generateTests(provider, { sourceCode: '', sourceFilePath: 'src/utils/math.ts' }).catch(() => undefined);
+
+    expect(result?.content).toContain("'../other/mathematics'");
+  });
+
+  it('tells the model the exact import path in the prompt', async () => {
+    const provider = fakeProvider('x');
+
+    await generateTests(provider, { sourceCode: 'export const a = 1;', sourceFilePath: 'src/utils/math.ts' });
+
+    expect((provider.complete as jest.Mock).mock.calls[0][0]).toContain("'./math'");
+  });
+});

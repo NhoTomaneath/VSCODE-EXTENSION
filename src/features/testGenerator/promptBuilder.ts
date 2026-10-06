@@ -1,4 +1,5 @@
 import { TestGenerationRequest } from './types';
+import { deriveImportPath } from './naming';
 
 /**
  * Builds the prompt sent to AIProvider. Asks for primary-behavior coverage
@@ -14,7 +15,7 @@ Requirements:
 - Target the Jest test framework only (describe/it/expect). No other test framework.
 - Cover the primary behavior of every exported function, method, or class in the code.
 - Also generate edge-case tests in the same file: boundary values, invalid input, and null/undefined handling.
-- Import the code under test using a relative import from this test file's location.
+- The test file is saved next to the source file, so import the code under test with exactly this path: '${deriveImportPath(request.sourceFilePath)}' (never ../src/... or any other path).
 - Output ONLY the test file source code, with no explanation before or after it.
 - Do not wrap the output in markdown code fences.
 
