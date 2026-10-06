@@ -17,11 +17,17 @@ export { scanWorkspaceForEndpoints } from './scanner';
 export class ApiExplorer implements ApiExplorerContract {
   private endpoints: ApiEndpoint[] = [];
   private errors: ScanError[] = [];
+  private scannedAt: number | undefined;
 
   scan(rootDir: string): void {
     const result = scanWorkspaceForEndpoints(rootDir);
     this.endpoints = result.endpoints;
     this.errors = result.errors;
+    this.scannedAt = Date.now();
+  }
+
+  getScannedAt(): number | undefined {
+    return this.scannedAt;
   }
 
   getEndpoints(): ApiEndpoint[] {
@@ -32,6 +38,9 @@ export class ApiExplorer implements ApiExplorerContract {
     return this.errors;
   }
 }
+
+/** Windows shells need curl.exe + double quotes; see CurlGeneratorOptions.style. */
+const CURL_STYLE = process.platform === 'win32' ? 'windows' : 'posix';
 
 const METHOD_COLORS: Record<string, string> = {
   GET: '#2f81f7',
@@ -67,7 +76,7 @@ export function activateApiExplorer(
     channel.appendLine('');
 
     for (const endpoint of endpoints) {
-      const curl = generateCurlCommand(endpoint, { baseUrl: apiBaseUrl });
+      const curl = generateCurlCommand(endpoint, { baseUrl: apiBaseUrl, style: CURL_STYLE });
       channel.appendLine(`${endpoint.method} ${endpoint.path}  (${endpoint.filePath}:${endpoint.line}, ${endpoint.framework})`);
       if (endpoint.bodyFields.length > 0) {
         channel.appendLine(`  body fields: ${endpoint.bodyFields.map((f) => f.name).join(', ')}`);
@@ -95,7 +104,12 @@ export function activateApiExplorer(
       panel.webview.onDidReceiveMessage(
         async (message: { type: string; filePath?: string; line?: number; curl?: string }) => {
           if (message.type === 'openFile' && message.filePath) {
-            const targetUri = vscode.Uri.file(path.join(root, message.filePath));
+            const resolved = path.resolve(root, message.filePath);
+            // The path comes from the webview; never open anything outside the workspace.
+            if (resolved !== root && !resolved.startsWith(root + path.sep)) {
+              return;
+            }
+            const targetUri = vscode.Uri.file(resolved);
             const doc = await vscode.workspace.openTextDocument(targetUri);
             const editor = await vscode.window.showTextDocument(doc, vscode.ViewColumn.Beside);
             const position = new vscode.Position(Math.max(0, (message.line ?? 1) - 1), 0);
@@ -125,7 +139,7 @@ export function activateApiExplorer(
 
 function renderWebviewHtml(endpoints: ApiEndpoint[], errors: ScanError[], apiBaseUrl: string): string {
   const rows = endpoints.map((endpoint, i) => {
-    const curl = generateCurlCommand(endpoint, { baseUrl: apiBaseUrl });
+    const curl = generateCurlCommand(endpoint, { baseUrl: apiBaseUrl, style: CURL_STYLE });
     const color = METHOD_COLORS[endpoint.method] || '#8b949e';
     const fields = endpoint.bodyFields.length
       ? escapeHtml(endpoint.bodyFields.map((f) => f.name).join(', '))

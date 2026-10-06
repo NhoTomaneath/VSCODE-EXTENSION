@@ -11,8 +11,16 @@ export function activateTerminalErrorExplainer(context: vscode.ExtensionContext,
   let lastFailure: TerminalCapture | undefined;
 
   const handleCapture = (capture: TerminalCapture) => {
+    // 130 = user pressed Ctrl+C; not a failure worth explaining.
+    if (capture.exitCode === 130) {
+      return;
+    }
     const detection = detectFailure(capture);
     if (!detection.matched) {
+      return;
+    }
+    // A bare non-zero exit with no output (e.g. `grep` with no match) has nothing to explain.
+    if (detection.signature === 'non-zero-exit' && !capture.text.trim()) {
       return;
     }
     lastFailure = capture;

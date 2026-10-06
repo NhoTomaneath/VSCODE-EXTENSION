@@ -36,7 +36,8 @@ describe('getAuditReport', () => {
 
     await expect(getAuditReport('/repo', runCommand)).resolves.toEqual({
       vulnerabilities: [],
-      totalInstalledPackages: 0
+      totalInstalledPackages: 0,
+      error: 'npm audit returned output that could not be parsed.'
     });
   });
 

@@ -133,4 +133,30 @@ describe('OllamaProvider', () => {
 
     await expect(provider.isAvailable()).resolves.toBe(true);
   });
+
+  it('throws when Ollama reports an error mid-stream instead of returning empty text', async () => {
+    const fetchImpl = jest
+      .fn()
+      .mockResolvedValue(streamedResponse([{ error: 'model requires more system memory' } as never]));
+    const provider = new OllamaProvider({ baseUrl: 'http://localhost:11434', model: 'qwen3:8b', fetchImpl: fetchImpl as unknown as typeof fetch });
+
+    await expect(provider.complete('hi')).rejects.toThrow(/more system memory/);
+  });
+
+  it('throws on an empty completion', async () => {
+    const fetchImpl = jest.fn().mockResolvedValue(streamedResponse([{ model: 'qwen3:8b', response: '', done: true }]));
+    const provider = new OllamaProvider({ baseUrl: 'http://localhost:11434', model: 'qwen3:8b', fetchImpl: fetchImpl as unknown as typeof fetch });
+
+    await expect(provider.complete('hi')).rejects.toThrow(/empty response/);
+  });
+
+  it('isModelAvailable() reflects whether the configured model is installed', async () => {
+    const tags = jsonResponse({ models: [{ name: 'llama3:latest' }] });
+    const fetchImpl = jest.fn().mockResolvedValue(tags);
+    const missing = new OllamaProvider({ baseUrl: 'http://localhost:11434', model: 'qwen3:8b', fetchImpl: fetchImpl as unknown as typeof fetch });
+    const present = new OllamaProvider({ baseUrl: 'http://localhost:11434', model: 'llama3', fetchImpl: fetchImpl as unknown as typeof fetch });
+
+    await expect(missing.isModelAvailable()).resolves.toBe(false);
+    await expect(present.isModelAvailable()).resolves.toBe(true);
+  });
 });

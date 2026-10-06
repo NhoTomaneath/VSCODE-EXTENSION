@@ -1,6 +1,6 @@
 import * as vscode from 'vscode';
 import { AIProvider } from '../../core/AIProvider';
-import { analyzeDependencies } from './analyzer';
+import { analyzeWorkspaceDependencies } from './analyzer';
 import { DependencyAnalysisResult } from './types';
 import { escapeHtml, wrapWebviewHtml } from '../../ui/webviewHtml';
 
@@ -11,7 +11,7 @@ export type {
   DependencyAnalysisSummary,
   DependencyAnalysisResult
 } from './types';
-export { analyzeDependencies } from './analyzer';
+export { analyzeDependencies, analyzeWorkspaceDependencies } from './analyzer';
 
 export function activateDependencyAnalyzer(context: vscode.ExtensionContext, aiProvider: AIProvider): void {
   const channel = vscode.window.createOutputChannel('Dev Companion AI: Dependencies');
@@ -28,7 +28,7 @@ export function activateDependencyAnalyzer(context: vscode.ExtensionContext, aiP
       try {
         const result = await vscode.window.withProgress(
           { location: vscode.ProgressLocation.Notification, title: 'Dev Companion AI: analyzing dependencies…' },
-          () => analyzeDependencies(root, { aiProvider })
+          () => analyzeWorkspaceDependencies(root, { aiProvider })
         );
 
         writeChannel(channel, result);
@@ -64,6 +64,12 @@ function writeChannel(channel: vscode.OutputChannel, result: DependencyAnalysisR
   );
   channel.appendLine('');
 
+  if (result.warnings.length > 0) {
+    channel.appendLine('WARNING - report may be incomplete:');
+    result.warnings.forEach((w) => channel.appendLine(`  ${w}`));
+    channel.appendLine('');
+  }
+
   if (result.outdated.length > 0) {
     channel.appendLine('Outdated packages:');
     result.outdated.forEach((p) => channel.appendLine(`  ${p.name}: ${p.current} -> ${p.latest}`));
@@ -87,7 +93,7 @@ function writeChannel(channel: vscode.OutputChannel, result: DependencyAnalysisR
 function renderWebviewHtml(result: DependencyAnalysisResult): string {
   const outdatedRows =
     result.outdated.length === 0
-      ? '<p class="empty">No outdated packages reported.</p>'
+      ? `<p class="empty">${result.warnings.length ? 'No outdated data available (see warnings above).' : 'No outdated packages reported.'}</p>`
       : `<table>
           <thead><tr><th>Package</th><th>Current</th><th>Wanted</th><th>Latest</th></tr></thead>
           <tbody>${result.outdated
@@ -100,7 +106,7 @@ function renderWebviewHtml(result: DependencyAnalysisResult): string {
 
   const vulnRows =
     result.vulnerabilities.length === 0
-      ? '<p class="empty">No vulnerabilities reported.</p>'
+      ? `<p class="empty">${result.warnings.length ? 'No vulnerability data available (see warnings above).' : 'No vulnerabilities reported.'}</p>`
       : `<table>
           <thead><tr><th>Package</th><th>Severity</th><th>Range</th><th>Fix</th></tr></thead>
           <tbody>${result.vulnerabilities
@@ -122,6 +128,12 @@ function renderWebviewHtml(result: DependencyAnalysisResult): string {
       ? `<div class="warn"><strong>AI summary unavailable</strong><div>${escapeHtml(result.aiSummaryError)}</div></div>`
       : '';
 
+  const warnings = result.warnings.length
+    ? `<div class="warn"><strong>Report may be incomplete</strong><ul>${result.warnings
+        .map((w) => `<li>${escapeHtml(w)}</li>`)
+        .join('')}</ul></div>`
+    : '';
+
   return wrapWebviewHtml({
     title: 'Dependencies',
     body: `
@@ -132,6 +144,7 @@ function renderWebviewHtml(result: DependencyAnalysisResult): string {
     <div class="card"><div class="label">Outdated</div><div class="value">${result.summary.outdatedCount}</div></div>
     <div class="card"><div class="label">Critical vulns</div><div class="value">${result.summary.criticalVulnerabilityCount}</div></div>
   </div>
+  ${warnings}
   ${ai}
   <h2>Outdated packages</h2>
   ${outdatedRows}

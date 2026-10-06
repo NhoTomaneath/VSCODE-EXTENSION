@@ -13,6 +13,8 @@ interface OllamaGenerateChunk {
   model: string;
   response: string;
   done: boolean;
+  /** Ollama reports mid-stream failures (e.g. out of memory) as `{"error": "..."}` lines. */
+  error?: string;
 }
 
 /**
@@ -102,6 +104,9 @@ export class OllamaProvider implements AIProvider {
           err
         );
       }
+      if (err instanceof AIProviderError) {
+        throw err;
+      }
       throw new AIProviderError('Ollama returned a response that could not be parsed as JSON.', err);
     } finally {
       clearTimeout(timeout);
@@ -126,6 +131,9 @@ export class OllamaProvider implements AIProvider {
         return;
       }
       const chunk = JSON.parse(trimmed) as OllamaGenerateChunk;
+      if (chunk.error) {
+        throw new AIProviderError(`Ollama reported an error: ${chunk.error}`);
+      }
       text += chunk.response ?? '';
       model = chunk.model ?? model;
     };
@@ -142,7 +150,39 @@ export class OllamaProvider implements AIProvider {
       consumeLine(buffer);
     }
 
+    if (!text.trim()) {
+      throw new AIProviderError(
+        `Ollama returned an empty response from model "${model}". Check that the model is installed (ollama pull ${model}).`
+      );
+    }
+
     return { text, model };
+  }
+
+  /**
+   * True when the configured model is installed locally. Resolves true when
+   * the answer can't be determined, so a flaky tags endpoint never produces a
+   * false "model missing" warning.
+   */
+  async isModelAvailable(): Promise<boolean> {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 3_000);
+    try {
+      const response = await this.fetchImpl(`${this.baseUrl}/api/tags`, { signal: controller.signal });
+      if (!response.ok) {
+        return true;
+      }
+      const body = (await response.json()) as { models?: Array<{ name?: string; model?: string }> };
+      if (!Array.isArray(body.models)) {
+        return true;
+      }
+      const wanted = this.defaultModel.includes(':') ? this.defaultModel : `${this.defaultModel}:latest`;
+      return body.models.some((m) => (m.name ?? m.model) === wanted);
+    } catch {
+      return true;
+    } finally {
+      clearTimeout(timeout);
+    }
   }
 
   async isAvailable(): Promise<boolean> {

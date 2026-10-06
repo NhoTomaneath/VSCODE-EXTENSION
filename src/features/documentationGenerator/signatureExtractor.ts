@@ -29,13 +29,17 @@ export function extractSignatures(sourceText: string, filePath: string): Extract
     return (ts.getModifiers(node) ?? []).some((m) => m.kind === ts.SyntaxKind.ExportKeyword);
   };
 
-  const toFunctionSignature = (node: ts.FunctionLikeDeclarationBase, name: string): FunctionSignature => ({
+  const toFunctionSignature = (
+    node: ts.FunctionLikeDeclarationBase,
+    name: string,
+    exportHost: ts.Node = node
+  ): FunctionSignature => ({
     name,
     params: node.parameters.map((p) => p.getText(sourceFile)),
     returnType: node.type?.getText(sourceFile),
     filePath,
     line: lineOf(node),
-    isExported: isExported(node),
+    isExported: isExported(exportHost),
     code: node.getText(sourceFile)
   });
 
@@ -52,7 +56,7 @@ export function extractSignatures(sourceText: string, filePath: string): Extract
           decl.initializer &&
           (ts.isArrowFunction(decl.initializer) || ts.isFunctionExpression(decl.initializer))
         ) {
-          functions.push(toFunctionSignature(decl.initializer, decl.name.text));
+          functions.push(toFunctionSignature(decl.initializer, decl.name.text, node));
         }
       }
       return;

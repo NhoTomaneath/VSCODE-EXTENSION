@@ -26,4 +26,8 @@ export class ReloadableAIProvider implements AIProvider {
   isAvailable(): Promise<boolean> {
     return this.inner.isAvailable();
   }
+
+  async isModelAvailable(): Promise<boolean> {
+    return this.inner.isModelAvailable ? this.inner.isModelAvailable() : true;
+  }
 }

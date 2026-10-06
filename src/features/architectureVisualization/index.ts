@@ -19,10 +19,16 @@ export { exportDiagramAsSvg, exportDiagramAsPng } from './exporter';
  */
 export class ArchitectureVisualizer implements ArchitectureContract {
   private tree: FolderTreeNode | undefined;
+  private scannedAt: number | undefined;
 
   scan(rootDir: string): FolderTreeNode {
     this.tree = scanFolderHierarchy(rootDir);
+    this.scannedAt = Date.now();
     return this.tree;
+  }
+
+  getScannedAt(): number | undefined {
+    return this.scannedAt;
   }
 
   getFolderTree(): FolderTreeNode | undefined {
@@ -67,6 +73,10 @@ export function activateArchitectureVisualization(
           exportDiagramAsPng(Buffer.from(message.base64Png, 'base64'), targetUri.fsPath);
           vscode.window.showInformationMessage(`Dev Companion AI: architecture diagram exported to ${targetUri.fsPath}`);
         }
+      } else if (message.type === 'exportPngError') {
+        vscode.window.showErrorMessage(
+          'Dev Companion AI: could not render the diagram as a PNG (it may be too large). Try exporting as SVG instead.'
+        );
       } else if (message.type === 'export' && lastDiagram) {
         await exportDiagram(message.format === 'png' ? 'png' : 'svg');
       }
@@ -137,6 +147,7 @@ function renderWebviewHtml(data: DiagramData, autoExportPng = false): string {
   <div class="diagram-wrap">${svg}</div>`,
     script: `
     const vscodeApi = acquireVsCodeApi();
+    const MAX_CANVAS_SIDE = 16000;
     document.getElementById('exportSvg')?.addEventListener('click', () => {
       vscodeApi.postMessage({ type: 'export', format: 'svg' });
     });
@@ -150,18 +161,29 @@ function renderWebviewHtml(data: DiagramData, autoExportPng = false): string {
       const xml = new XMLSerializer().serializeToString(svg);
       const url = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(xml);
       const img = new Image();
+      const fail = () => vscodeApi.postMessage({ type: 'exportPngError' });
+      img.onerror = fail;
       img.onload = () => {
-        const canvas = document.createElement('canvas');
-        const width = svg.width.baseVal.value || img.width;
-        const height = svg.height.baseVal.value || img.height;
-        canvas.width = width;
-        canvas.height = height;
-        const ctx = canvas.getContext('2d');
-        if (!ctx) return;
-        ctx.fillStyle = getComputedStyle(document.body).backgroundColor || '#ffffff';
-        ctx.fillRect(0, 0, width, height);
-        ctx.drawImage(img, 0, 0);
-        vscodeApi.postMessage({ type: 'exportPngResult', base64Png: canvas.toDataURL('image/png').split(',')[1] });
+        try {
+          const width = svg.width.baseVal.value || img.width;
+          const height = svg.height.baseVal.value || img.height;
+          // Browsers cap canvas size (~32k px per side); scale big trees down instead of exporting a blank image.
+          const scale = Math.min(1, MAX_CANVAS_SIDE / Math.max(width, height));
+          const canvas = document.createElement('canvas');
+          canvas.width = Math.max(1, Math.floor(width * scale));
+          canvas.height = Math.max(1, Math.floor(height * scale));
+          const ctx = canvas.getContext('2d');
+          if (!ctx) return fail();
+          ctx.fillStyle = '#ffffff';
+          ctx.fillRect(0, 0, canvas.width, canvas.height);
+          ctx.scale(scale, scale);
+          ctx.drawImage(img, 0, 0, width, height);
+          const dataUrl = canvas.toDataURL('image/png');
+          if (!dataUrl.startsWith('data:image/png')) return fail();
+          vscodeApi.postMessage({ type: 'exportPngResult', base64Png: dataUrl.split(',')[1] });
+        } catch (e) {
+          fail();
+        }
       };
       img.src = url;
     }

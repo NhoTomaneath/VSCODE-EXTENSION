@@ -45,4 +45,20 @@ describe('generateTests', () => {
     expect(promptArg).toContain('boundary values');
     expect(promptArg).toContain('null/undefined');
   });
+
+  it('extracts the fenced block when the model adds prose around it', async () => {
+    const provider = fakeProvider('Here are your tests:\n```ts\ndescribe("x", () => {});\n```\nHope this helps!');
+
+    const result = await generateTests(provider, { sourceCode: 'export const x = 1;', sourceFilePath: 'src/x.ts' });
+
+    expect(result.content).toBe('describe("x", () => {});\n');
+  });
+
+  it('rejects an empty AI response instead of producing a blank test file', async () => {
+    const provider = fakeProvider('   ');
+
+    await expect(
+      generateTests(provider, { sourceCode: 'export const x = 1;', sourceFilePath: 'src/x.ts' })
+    ).rejects.toThrow(/empty response/);
+  });
 });

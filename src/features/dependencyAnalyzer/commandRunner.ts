@@ -14,11 +14,15 @@ import { CommandRunner } from './types';
  * analysis spinning indefinitely instead of falling back to whatever local
  * data npm managed to report.
  */
-const COMMAND_TIMEOUT_MS = 30_000;
+const COMMAND_TIMEOUT_MS = 60_000;
 
 export const defaultCommandRunner: CommandRunner = (command, cwd) =>
   new Promise((resolve) => {
-    exec(command, { cwd, maxBuffer: 10 * 1024 * 1024, timeout: COMMAND_TIMEOUT_MS }, (_error, stdout, stderr) => {
-      resolve({ stdout: stdout?.toString() ?? '', stderr: stderr?.toString() ?? '' });
+    exec(command, { cwd, maxBuffer: 10 * 1024 * 1024, timeout: COMMAND_TIMEOUT_MS }, (error, stdout, stderr) => {
+      resolve({
+        stdout: stdout?.toString() ?? '',
+        stderr: stderr?.toString() ?? '',
+        timedOut: Boolean(error && (error as { killed?: boolean }).killed)
+      });
     });
   });

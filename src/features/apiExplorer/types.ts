@@ -35,4 +35,6 @@ export interface ApiScanResult {
 export interface ApiExplorerContract {
   getEndpoints(): ApiEndpoint[];
   getScanErrors(): ScanError[];
+  /** Epoch ms of the most recent scan, if any — lets consumers detect stale data. */
+  getScannedAt?(): number | undefined;
 }

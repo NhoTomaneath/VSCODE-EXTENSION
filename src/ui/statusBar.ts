@@ -3,7 +3,7 @@ import { AIProvider } from '../core/AIProvider';
 import { DevCompanionConfig } from '../core/config';
 
 export interface CompanionStatusBar {
-  refresh(available: boolean): void;
+  refresh(available: boolean, modelMissing?: boolean): void;
 }
 
 export function activateStatusBar(
@@ -19,9 +19,13 @@ export function activateStatusBar(
   item.show();
   context.subscriptions.push(item);
 
-  const refresh = (available: boolean) => {
+  const refresh = (available: boolean, modelMissing = false) => {
     const config = getConfig();
-    if (available) {
+    if (available && modelMissing) {
+      item.text = '$(warning) Dev Companion';
+      item.backgroundColor = new vscode.ThemeColor('statusBarItem.warningBackground');
+      item.tooltip = `Connected to ${config.provider}, but model "${config.model}" is not installed. Run: ollama pull ${config.model}`;
+    } else if (available) {
       item.text = '$(sparkle) Dev Companion';
       item.backgroundColor = undefined;
       item.tooltip = `Connected to ${config.provider} (${config.model}) at ${config.ollama_url}`;
@@ -36,8 +40,13 @@ export function activateStatusBar(
     vscode.commands.registerCommand('devCompanion.showStatus', async () => {
       const config = getConfig();
       const available = await aiProvider.isAvailable();
-      refresh(available);
-      const status = available ? `connected (${config.model})` : 'unreachable';
+      const modelMissing = available && aiProvider.isModelAvailable ? !(await aiProvider.isModelAvailable()) : false;
+      refresh(available, modelMissing);
+      const status = !available
+        ? 'unreachable'
+        : modelMissing
+          ? `reachable, but model "${config.model}" is not installed (run: ollama pull ${config.model})`
+          : `connected (${config.model})`;
       const choice = await vscode.window.showInformationMessage(
         `Dev Companion AI: ${config.provider} is ${status} at ${config.ollama_url}.`,
         'Open Settings',
@@ -46,7 +55,8 @@ export function activateStatusBar(
       if (choice === 'Open Settings') {
         await vscode.commands.executeCommand('devCompanion.openSettings');
       } else if (choice === 'Retry') {
-        refresh(await aiProvider.isAvailable());
+        const retried = await aiProvider.isAvailable();
+        refresh(retried, retried && aiProvider.isModelAvailable ? !(await aiProvider.isModelAvailable()) : false);
       }
     })
   );

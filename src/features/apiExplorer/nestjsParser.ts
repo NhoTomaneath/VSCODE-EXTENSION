@@ -8,8 +8,16 @@ interface ControllerBlock {
   startLine: number;
 }
 
-const METHOD_DECORATOR_PATTERN = /@(Get|Post|Put|Patch|Delete|Options|Head)\(\s*(?:(['"`])([^'"`]*)\2\s*)?\)/g;
-const CONTROLLER_DECORATOR_PATTERN = /@Controller\(\s*(?:(['"`])([^'"`]*)\1\s*)?\)/g;
+const METHOD_DECORATOR_PATTERN = /@(Get|Post|Put|Patch|Delete|Options|Head)\(([^)]*)\)/g;
+const CONTROLLER_DECORATOR_PATTERN = /@Controller\(([^)]*)\)/g;
+const STRING_LITERAL_PATTERN = /(['"`])([^'"`]*)\1/g;
+
+/** All string literals in a decorator argument list: `'a'`, `['a', 'b']`; ignores other args like `version`. */
+function pathLiterals(args: string): string[] {
+  const objectPath = args.match(/\bpath\s*:\s*(\[[^\]]*\]|(['"`])[^'"`]*\2)/);
+  const source = objectPath ? objectPath[1] : args.trim().startsWith('{') ? '' : args;
+  return Array.from(source.matchAll(STRING_LITERAL_PATTERN), (m) => m[2]);
+}
 
 export function parseNestJsRoutes(text: string, filePath: string): ApiEndpoint[] {
   const endpoints: ApiEndpoint[] = [];
@@ -25,21 +33,23 @@ export function parseNestJsRoutes(text: string, filePath: string): ApiEndpoint[]
     for (let i = 0; i < matches.length; i++) {
       const current = matches[i];
       const method = current[1].toUpperCase() as ApiEndpoint['method'];
-      const subPath = current[3] ?? '';
+      const subPaths = pathLiterals(current[2]);
       const lineOffset = block.bodyText.slice(0, current.index).split('\n').length - 1;
       // Bound the search window to the next method decorator (or end of the
       // controller body) so a later handler's @Body() can't leak into this one.
       const windowEnd = i + 1 < matches.length ? matches[i + 1].index : block.bodyText.length;
       const windowText = block.bodyText.slice(current.index, windowEnd);
 
-      endpoints.push({
-        method,
-        path: joinPaths(block.prefix, subPath),
-        filePath,
-        line: block.startLine + lineOffset,
-        framework: 'nestjs',
-        bodyFields: extractBodyFields(windowText)
-      });
+      for (const subPath of subPaths.length > 0 ? subPaths : ['']) {
+        endpoints.push({
+          method,
+          path: joinPaths(block.prefix, subPath),
+          filePath,
+          line: block.startLine + lineOffset,
+          framework: 'nestjs',
+          bodyFields: extractBodyFields(windowText)
+        });
+      }
     }
   }
 
@@ -52,7 +62,7 @@ function findControllerBlocks(text: string): ControllerBlock[] {
   let match: RegExpExecArray | null;
 
   while ((match = CONTROLLER_DECORATOR_PATTERN.exec(text))) {
-    const prefix = match[2] ?? '';
+    const prefix = pathLiterals(match[1])[0] ?? '';
     const searchFrom = match.index + match[0].length;
     const openBraceIndex = text.indexOf('{', searchFrom);
     if (openBraceIndex === -1) {

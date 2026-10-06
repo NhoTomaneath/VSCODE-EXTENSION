@@ -33,3 +33,16 @@ describe('renderDiagramAsSvg', () => {
     expect(() => renderDiagramAsSvg({ nodes: [], edges: [] })).not.toThrow();
   });
 });
+
+describe('long labels', () => {
+  it('truncates labels that would overflow the node box and keeps the full name as a tooltip', () => {
+    const longName = 'a-very-long-file-name-that-overflows.service.ts';
+    const svg = renderDiagramAsSvg({
+      nodes: [{ id: longName, label: longName, depth: 0, type: 'file' }],
+      edges: []
+    });
+
+    expect(svg).toContain(`<title>${longName}</title>`);
+    expect(svg).toContain('\u2026</text>');
+  });
+});

@@ -22,8 +22,14 @@ export function activate(context: vscode.ExtensionContext): void {
 
   const checkProvider = async (announceWhenUnavailable: boolean) => {
     const available = await aiProvider.isAvailable();
-    statusBar.refresh(available);
-    if (!available && announceWhenUnavailable) {
+    const modelMissing = available && aiProvider.isModelAvailable ? !(await aiProvider.isModelAvailable()) : false;
+    statusBar.refresh(available, modelMissing);
+    if (available && modelMissing && announceWhenUnavailable) {
+      const config = getConfig();
+      void vscode.window.showWarningMessage(
+        `Dev Companion AI: model "${config.model}" is not installed on the Ollama server. Run: ollama pull ${config.model}`
+      );
+    } else if (!available && announceWhenUnavailable) {
       const config = getConfig();
       const choice = await vscode.window.showWarningMessage(
         `Dev Companion AI: could not reach the "${config.provider}" provider at ${config.ollama_url}. ` +
@@ -49,13 +55,28 @@ export function activate(context: vscode.ExtensionContext): void {
     vscode.workspace.onDidChangeConfiguration((event) => {
       if (event.affectsConfiguration('devCompanion')) {
         aiProvider.reload();
-        void checkProvider(true);
+        // Only model/URL changes can change reachability; skip the popup for e.g. apiBaseUrl.
+        const connectionChanged =
+          event.affectsConfiguration('devCompanion.model') || event.affectsConfiguration('devCompanion.ollamaUrl');
+        void checkProvider(connectionChanged);
       }
     })
   );
 
+  // config.json in the workspace root is also a config source; reload when it changes.
+  const configWatcher = vscode.workspace.createFileSystemWatcher('**/config.json');
+  const onConfigFileChange = () => {
+    aiProvider.reload();
+    void checkProvider(true);
+  };
+  configWatcher.onDidChange(onConfigFileChange);
+  configWatcher.onDidCreate(onConfigFileChange);
+  configWatcher.onDidDelete(onConfigFileChange);
+  context.subscriptions.push(configWatcher);
+
   activateSidebar(context);
-  void checkProvider(true);
+  // Startup check is silent: the status bar already turns yellow, and a popup on every launch is noise.
+  void checkProvider(false);
 
   activateTestGenerator(context, aiProvider);
   activateTerminalErrorExplainer(context, aiProvider);

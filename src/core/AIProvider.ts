@@ -51,4 +51,6 @@ export interface AIProvider {
   complete(prompt: string, options?: CompletionOptions): Promise<CompletionResult>;
   /** Checks whether the provider is reachable right now. Never throws. */
   isAvailable(): Promise<boolean>;
+  /** Whether the configured model is installed. Optional; absent or uncertain means "assume yes". */
+  isModelAvailable?(): Promise<boolean>;
 }

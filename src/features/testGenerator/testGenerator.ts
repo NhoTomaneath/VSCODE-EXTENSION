@@ -17,14 +17,24 @@ export async function generateTests(
     systemPrompt: 'You are an expert TypeScript/JavaScript test engineer who writes precise Jest tests.'
   });
 
+  const content = stripMarkdownFences(text).trim();
+  if (!content) {
+    throw new Error('The AI model returned an empty response, so no tests were generated.');
+  }
+
   return {
     testFilePath: deriveTestFilePath(request.sourceFilePath),
-    content: stripMarkdownFences(text).trim() + '\n'
+    content: content + '\n'
   };
 }
 
 function stripMarkdownFences(text: string): string {
   const trimmed = text.trim();
   const fenceMatch = trimmed.match(/^```(?:[a-zA-Z]*)\n([\s\S]*?)\n?```$/);
-  return fenceMatch ? fenceMatch[1] : trimmed;
+  if (fenceMatch) {
+    return fenceMatch[1];
+  }
+  // Models often add prose around the fenced block; keep just the first block.
+  const embedded = trimmed.match(/```[a-zA-Z]*\n([\s\S]*?)\n?```/);
+  return embedded ? embedded[1] : trimmed;
 }

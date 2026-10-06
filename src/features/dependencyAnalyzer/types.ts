@@ -28,9 +28,11 @@ export interface DependencyAnalysisResult {
   aiSummary?: string;
   /** Set when an AIProvider was supplied but the summary call failed (e.g. Ollama unreachable) — the rest of the report is still valid. */
   aiSummaryError?: string;
+  /** Problems that make the report incomplete (npm failed, timed out, no package.json…). Never silently shown as "clean". */
+  warnings: string[];
 }
 
 /** Injectable shell command runner, used so tests never invoke a real `npm` process. */
 export interface CommandRunner {
-  (command: string, cwd: string): Promise<{ stdout: string; stderr: string }>;
+  (command: string, cwd: string): Promise<{ stdout: string; stderr: string; timedOut?: boolean }>;
 }

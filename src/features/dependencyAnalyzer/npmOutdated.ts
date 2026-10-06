@@ -1,5 +1,6 @@
 import { CommandRunner, OutdatedPackage } from './types';
 import { defaultCommandRunner } from './commandRunner';
+import { firstNpmErrorLine } from './npmErrors';
 
 interface NpmOutdatedEntry {
   current?: string;
@@ -15,22 +16,40 @@ export async function getOutdatedPackages(
   cwd: string,
   runCommand: CommandRunner = defaultCommandRunner
 ): Promise<OutdatedPackage[]> {
-  const { stdout } = await runCommand('npm outdated --json', cwd);
+  return (await getOutdatedReport(cwd, runCommand)).packages;
+}
+
+/** Like `getOutdatedPackages`, but also reports why npm produced no usable data. */
+export async function getOutdatedReport(
+  cwd: string,
+  runCommand: CommandRunner = defaultCommandRunner
+): Promise<{ packages: OutdatedPackage[]; error?: string }> {
+  const { stdout, stderr, timedOut } = await runCommand('npm outdated --json', cwd);
   if (!stdout.trim()) {
-    return [];
+    if (timedOut) {
+      return { packages: [], error: 'npm outdated timed out (registry slow or unreachable).' };
+    }
+    const detail = firstNpmErrorLine(stderr);
+    return detail ? { packages: [], error: `npm outdated failed: ${detail}` } : { packages: [] };
   }
 
   let parsed: Record<string, NpmOutdatedEntry>;
   try {
     parsed = JSON.parse(stdout);
   } catch {
-    return [];
+    return { packages: [], error: 'npm outdated returned output that could not be parsed.' };
   }
 
-  return Object.entries(parsed).map(([name, info]) => ({
+  const npmError = (parsed as { error?: { summary?: string; code?: string } }).error;
+  if (npmError && typeof npmError === 'object') {
+    return { packages: [], error: `npm outdated failed: ${npmError.summary ?? npmError.code ?? 'unknown error'}` };
+  }
+
+  const packages = Object.entries(parsed).map(([name, info]) => ({
     name,
     current: info.current ?? 'missing',
     wanted: info.wanted ?? '',
     latest: info.latest ?? ''
   }));
+  return { packages };
 }

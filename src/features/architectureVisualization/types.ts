@@ -30,4 +30,6 @@ export type DiagramExportFormat = 'svg' | 'png';
  */
 export interface ArchitectureContract {
   getFolderTree(): FolderTreeNode | undefined;
+  /** Epoch ms of the most recent scan, if any — lets consumers detect stale data. */
+  getScannedAt?(): number | undefined;
 }

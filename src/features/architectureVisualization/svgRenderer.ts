@@ -9,6 +9,8 @@ const LEGEND_SWATCH = 12;
 const LEGEND_ITEM_WIDTH = 130;
 const LEGEND_ROW_HEIGHT = 22;
 const LEGEND_TOP_MARGIN = 12;
+/** Approximate characters that fit in a node box at font-size 12. */
+const MAX_LABEL_CHARS = 20;
 
 /**
  * Fixed categorical palette (validated for light/dark contrast and
@@ -109,7 +111,7 @@ export function renderDiagramAsSvg(data: DiagramData): string {
       const nodeClass = node.type === 'directory' ? 'node-directory' : 'node-file';
       return [
         `<rect class="${nodeClass}" x="${pos.x}" y="${pos.y}" width="${NODE_WIDTH}" height="${NODE_HEIGHT}" rx="4" fill="${style.color}" />`,
-        `<text class="node-label" x="${pos.x + 8}" y="${pos.y + NODE_HEIGHT / 2 + 4}" font-family="sans-serif" font-size="12" fill="${contrastText(style.color)}">${escapeXml(node.label)}</text>`
+        `<text class="node-label" x="${pos.x + 8}" y="${pos.y + NODE_HEIGHT / 2 + 4}" font-family="sans-serif" font-size="12" fill="${contrastText(style.color)}">${node.label.length > MAX_LABEL_CHARS ? `<title>${escapeXml(node.label)}</title>` : ''}${escapeXml(truncateLabel(node.label))}</text>`
       ].join('\n  ');
     })
     .join('\n  ');
@@ -165,6 +167,10 @@ function buildLegend(
     width: PADDING * 2 + columns * LEGEND_ITEM_WIDTH,
     height: LEGEND_TOP_MARGIN + rows * LEGEND_ROW_HEIGHT
   };
+}
+
+function truncateLabel(label: string): string {
+  return label.length > MAX_LABEL_CHARS ? `${label.slice(0, MAX_LABEL_CHARS - 1)}…` : label;
 }
 
 function escapeXml(value: string): string {
